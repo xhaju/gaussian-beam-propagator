@@ -177,8 +177,17 @@ class BeamPropagation():
         zmin=self.z0
         zmax= self.lensPositions[-1] + self.lensFocals[-1]
         z=sp.arange(zmin,zmax,(zmax-zmin)/NUMBER_OF_STEPS)
-        #Dummy
+        beamWidth=sp.zeros(len(z))
 
+        #index=sp.arange(0,self.amountSections)[sum(z>prop.beamsLimits)==1]
+        #BeamSection(*self.beamParams[:,index]).waist(z)
+        for ii in range(self.amountSections):
+            localIndices=((z>self.beamsLimits[0,ii]) &(z<=self.beamsLimits[1,ii]))
+            zlocal= z[localIndices]
+            beamWidth[localIndices]=BeamSection(*self.beamParams[:,ii]).waist(zlocal)
+            print zlocal
+
+        plt.plot(z,beamWidth)
             
 
 
