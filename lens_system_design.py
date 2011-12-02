@@ -81,6 +81,10 @@ class BeamSection:
 class BeamPropagation():
     """ Collection of Gaussian beams with lenses. """
 
+    ####################
+    #  Definition
+    ####################
+    
     def __init__(self,originalBeamParams,lenses):
         """ Creates a collection of beam+lenses to be used by the object.
 
@@ -106,6 +110,14 @@ class BeamPropagation():
         self.amountElements = len(self.lensPositions)
         self.amountSections = self.amountElements + 1
 
+        #Obtain the intervals of application for each of the beam sections
+        beamsLimits= sp.zeros((2,self.amountSections))
+        beamsLimits[0,0]=-sp.inf
+        beamsLimits[0,1:]=self.lensPositions
+        beamsLimits[1,:-1]=self.lensPositions
+        beamsLimits[1,-1]=sp.inf
+        self.beamsLimits = beamsLimits
+
         #CHANGE: make sure that the waist is between lenses. Now, only make sure that the
         #position of the waist is smaller than the rest
         if self.z0 > self.lensPositions.all():
@@ -123,7 +135,24 @@ class BeamPropagation():
                 oldBeam=newBeam
             self.beamParams=beamParams
                 
-                
+    def waist(self,z):
+        """ Obtain the waist of the beam at a point z.
+        Not suitable for arrays
+
+        """
+        #The beamsLimits is a matrix with the upper and lower limits
+        #of the intervales for each section. If we compare the matrix
+        #to the z value we are interested in and sum them, only the
+        #right section will obtain a "1" (the value will only be greater
+        #than the lower limit)
+        index=sp.arange(0,self.amountSections)[sum(z>=prop.beamsLimits)==1]
+        #Then, we obtain the waist from the appropriate BeamSection
+        return BeamSection(*self.beamParams[:,index]).waist(z)
+        
+
+    ####################
+    # Report methods
+    ####################
 
     def reportLenses(self):
         print " Position    Focal   "
@@ -137,7 +166,18 @@ class BeamPropagation():
         for ii in range(self.amountSections):
             print "{0:10.2e} {1:10.2e} {2:10.2e}".format(self.beamParams[0,ii], self.beamParams[1,ii], self.beamParams[2,ii])
         print "====================="
-    
+
+        
+    ####################
+    # Plotting methods
+    ####################
+
+    def plotFull(self):
+        NUMBER_OF_STEPS=300
+        zmin=self.z0
+        zmax= self.lensPositions[-1] + self.lensFocals[-1]
+        z=sp.arange(zmin,zmax,(zmax-zmin)/NUMBER_OF_STEPS)
+        #Dummy
 
             
 
