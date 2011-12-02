@@ -172,22 +172,31 @@ class BeamPropagation():
     # Plotting methods
     ####################
 
-    def plotFull(self):
+    def plotFull(self,xmin,xmax):
         NUMBER_OF_STEPS=300
+        #xmax=(self.lensPositions[-1] + self.lensFocals[-1])
+        #xmin=self.z0
+        
         zmin=self.z0
         zmax= self.lensPositions[-1] + self.lensFocals[-1]
         z=sp.arange(zmin,zmax,(zmax-zmin)/NUMBER_OF_STEPS)
         beamWidth=sp.zeros(len(z))
+        
+        plt.figure()
 
         #index=sp.arange(0,self.amountSections)[sum(z>prop.beamsLimits)==1]
-        #BeamSection(*self.beamParams[:,index]).waist(z)
+        #BeamSection(*self.beamParams[:,index]).waiplst(z)
         for ii in range(self.amountSections):
             localIndices=((z>self.beamsLimits[0,ii]) &(z<=self.beamsLimits[1,ii]))
             zlocal= z[localIndices]
             beamWidth[localIndices]=BeamSection(*self.beamParams[:,ii]).waist(zlocal)
-            print zlocal
-
         plt.plot(z,beamWidth)
+        plt.xlabel('z (m)')
+        plt.ylabel('Width (m)')
+        
+        for ii in range(self.amountElements):
+            plt.axvline(x=self.lensPositions[ii])
+
             
 
 
