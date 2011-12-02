@@ -35,26 +35,38 @@ def RayleighR(self):
 
 
 class BeamSection:
-    """ Section of the beam characterized by a waist w_0, a wavelength lambd and the position of the waist z0"""
+    """ Section of the beam characterized by a waist, a wavelength and the position of the waist.
+    """
+
     def __init__(self, wavelength, waist,position):
-        """ Initialize the values of position, waist and wavelength. It also creates the Rayleigh range zR"""
-        self.z0= position
-        self.w0= waist
-        self.lambd=wavelength
-        self.zR= sp.pi*waist**2/wavelength
+        """ Initialize the values of position, waist and wavelength.
+        It also creates the Rayleigh range zR
+
+        """
+        self.z0 = position
+        self.w0 = waist
+        self.lambd = wavelength
+        self.zR = sp.pi * waist**2 / wavelength
+
     def waist(self, z):
-        """ Outputs the waist of the gaussian beam at a position z. The position "z" can be an array """
-        return self.w0*sp.sqrt(1+ (z/self.zR)**2)
+        """ Outputs the waist of the gaussian beam at a position z.  The position can be an array """
+        return self.w0* sp.sqrt(1 + (z-self.z0)**2 /self.zR**2)
+
+    def divergence(self):
+        """ Calculates the divergence of the beam.  The full angular spread is twice this number """
+        return self.lambd/(sp.pi * self.w0)
+
     def transformByLens(self, f, z):
         """ Transforms the Gaussian beam to one "after" the lens with focal f placed at z"""
-        d_in = z-self.z0
+        d_in = z - self.z0
         #denom is the common denominator of the changes in z0 and w0
-        denom = (d_in/f-1)**2+(self.zR/f)**2
-        d_out=f*(1+(d_in/f)/denom)
+        denom = (d_in/f-1)**2 + (self.zR/f)**2
+        d_out = f * (1+(d_in/f - 1) / denom)
         #Change the parameters of the Gaussian
-        z0= z+ d_out
-        w0= self.w0/sp.sqrt(denom)
+        z0 = z + d_out
+        w0 = self.w0/sp.sqrt(denom)
         return BeamSection(self.lambd,w0,z0)
+    
     def report(self):
         """ Print some parameters"""
         print "##############################"
@@ -63,6 +75,74 @@ class BeamSection:
         print "Rayleigh Range = {0:e}".format(self.zR)
         print "##############################"
 
+    def parameters(self):
+        return (self.lambd, self.w0, self.z0)
+
+class BeamPropagation():
+    """ Collection of Gaussian beams with lenses. """
+
+    def __init__(self,originalBeamParams,lenses):
+        """ Creates a collection of beam+lenses to be used by the object.
+
+        -OriginalBeamParams is a vector that we can pass a BeamSection object as
+        BeamSection(*OriginalBeamParams) to create the initial beam.
+
+        -lenses is a matrix of (2xN) elements where the second index cycles through
+        the elements, lenses[1,:] are the positions and lenses[0,:] are the focals.
+
+        """
+        # In future implementations, "lenses" can be "transformations", as a collection
+        # of objects with certain parameters that are passed to the initial beam to create
+        # different sections. The BeamSection, therefore, should admit a method __transform__
+        # that takes one of these objects and creates another BeamSection object.
+        distancesList=lenses[1,:]
+        focalsList=lenses[0,:]
+        
+        #The parameters of the lenses are stored and sorted according to the distances
+        self.lensPositions = distancesList[distancesList.argsort()]
+        self.lensFocals = focalsList[distancesList.argsort()]
+        self.z0 = originalBeamParams[2]
+        self.w0 = originalBeamParams[1]
+        self.amountElements = len(self.lensPositions)
+        self.amountSections = self.amountElements + 1
+
+        #CHANGE: make sure that the waist is between lenses. Now, only make sure that the
+        #position of the waist is smaller than the rest
+        if self.z0 > self.lensPositions.all():
+            raise Exception('The position of the initial waist is not smaller than the positions of the lenses')
+        else:
+            #Create a list of beam parameters
+            beamParams=sp.zeros((3,self.amountSections))
+            beamParams[:,0]=originalBeamParams
+            parms=originalBeamParams
+            for ii in range(0,self.amountElements):
+                oldBeam=BeamSection(*parms)
+                newBeam=oldBeam.transformByLens(self.lensFocals[ii], self.lensPositions[ii])
+                beamParams[:,ii+1]=newBeam.parameters()
+                parms=beamParams[:,ii+1]
+                oldBeam=newBeam
+            self.beamParams=beamParams
+                
+                
+
+    def reportLenses(self):
+        print " Position    Focal   "
+        print "---------------------"
+        for ii in range(self.amountElements):
+            print "{0:10.2e} {1:10.2e}".format(self.lensPositions[ii], self.lensFocals[ii])
+        print "====================="
+    def reportParameters(self):
+        print " Lambd         w0         z0   "
+        print "-------------------------------"
+        for ii in range(self.amountSections):
+            print "{0:10.2e} {1:10.2e} {2:10.2e}".format(self.beamParams[0,ii], self.beamParams[1,ii], self.beamParams[2,ii])
+        print "====================="
+    
+
+            
+
+
+    
 #--Location and size of the beam waist in the output
 #denom=((d_in/f-1)**2 +(zR/f)**2)
 #d_out= f * (1+ (d_in/f -1)/denom)
@@ -73,8 +153,8 @@ class BeamSection:
 def denominator(d_in,f,zR):
     return (d_in/f -1)**2 +(zR/f)**2
 
-def propagated_waist(w_0,z,zR):
-    return w_0*sp.sqrt(1+(z/zR)**2)
+def propagated_waist(w_0,z,zR,sz):
+    return w_0*sp.sqrt(1+((z-sz)/zR)**2)
 
 def rayleigh_range(waist,lambd):
     return sp.pi*waist**2/lambd
@@ -98,7 +178,7 @@ w_1=w_0*Mmax
 zR1=rayleigh_range(w_1,lambd)
 #If we propagate that beam a length L forwards, the beam waist will be
 L=50e-2
-w_1prop=propagated_waist(w_1,L,zR1)
+w_1prop=propagated_waist(w_1,L,zR1,0)
 
 
 print 'Rayleigh Range: ',zR
@@ -109,7 +189,7 @@ print 'If that waist is located at a distance {0:.2e} from the minimum waist, th
 ##############################
 #Try object
 
-myBeam=BeamSection(780e-9,100.1e-6,0)
+myBeam=BeamSection(780.24e-9,1.1e-6,0)
 myBeam2=myBeam.transformByLens(32e-3,32e-3)
 myBeam3=myBeam2.transformByLens(32e-3,96e-3)
 myBeam.report()
@@ -121,6 +201,8 @@ myBeam3.report()
 z=sp.arange(-10e-6,150e-3,1e-4)
 #z=sp.arange(-10e-6,100e-6,1e-6)
 plt.plot(z,myBeam.waist(z),label='first')
-plt.plot(z,myBeam3.waist(z),label='second')
+plt.plot(z,myBeam2.waist(z),label='second')
+plt.plot(z,myBeam3.waist(z),label='third')
+
 plt.legend()
 plt.show()
