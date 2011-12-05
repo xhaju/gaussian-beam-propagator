@@ -150,7 +150,7 @@ class BeamPropagation():
         #to the z value we are interested in and sum them, only the
         #right section will obtain a "1" (the value will only be greater
         #than the lower limit)
-        index=sp.arange(0,self.amountSections)[sum(z>=prop.beamsLimits)==1]
+        index=sp.arange(0,self.amountSections)[sum(z>=self.beamsLimits)==1]
         #Then, we obtain the waist from the appropriate BeamSection
         return BeamSection(*self.beamParams[:,index]).waist(z)
         
@@ -191,6 +191,8 @@ class BeamPropagation():
 
         kwargs:
         sym [True|False]  - Plots the mirror image of the width profile alongside the normal one.
+        new [True|False]  - Whether it plots using a new figure
+        axes [ axes object] - plots the figure using the command axes.plot ()
 
         """
         NUMBER_OF_STEPS=300
@@ -203,8 +205,11 @@ class BeamPropagation():
 
         z=sp.arange(zmin,zmax,(zmax-zmin)/NUMBER_OF_STEPS)
         beamWidth=sp.zeros(len(z))
+        if ('new' in kwargs):
+            if kwargs['new']== True:
+                plt.figure()
         
-        plt.figure()
+        
         #This time, opposite to the waist method, it will loop over the different
         #sections, checking which parts of the beam fall under the limits of each
         #section. Then, it will use the "waist" method in the BeamSection object
@@ -219,6 +224,7 @@ class BeamPropagation():
         if ('sym' in kwargs):
             if kwargs['sym']== True:
                 plt.plot(z,-beamWidth,'r',linewidth=3)
+        
 
         #Add some labels (important, scientists!)
         plt.xlabel('z (m)')
