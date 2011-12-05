@@ -36,6 +36,11 @@ def RayleighR(self):
 
 class BeamSection:
     """ Section of the beam characterized by a waist, a wavelength and the position of the waist.
+    It contains all the information to represent a Gaussian beam that propagates in free space.
+
+    The function "transformByLens" returns another object of this same type that is the
+    transformation of the beam section by a lens.
+
     """
 
     def __init__(self, wavelength, waist,position):
@@ -155,12 +160,18 @@ class BeamPropagation():
     ####################
 
     def reportLenses(self):
+        """ Shows an annotated table with the positions and focals of the lenses
+        """
         print " Position    Focal   "
         print "---------------------"
         for ii in range(self.amountElements):
             print "{0:10.2e} {1:10.2e}".format(self.lensPositions[ii], self.lensFocals[ii])
         print "====================="
     def reportParameters(self):
+        """ Shows an annotated table with the parameters of the different sections of beam
+        between the lenses.
+
+        """
         print " Lambd         w0         z0   "
         print "-------------------------------"
         for ii in range(self.amountSections):
