@@ -172,41 +172,58 @@ class BeamPropagation():
     # Plotting methods
     ####################
 
-    def plotFull(self,zmin,zmax):
+    def plotFull(self,zmin=None,zmax=None,**kwargs):
+        """ Plots the Gaussian beam width within the object from zmin to zmax.
+
+        If not defined, zmin will be the position of the initial waist and
+        zmax will be the position of the focus of the last lens.
+
+        kwargs:
+        sym [True|False]  - Plots the mirror image of the width profile alongside the normal one.
+
+        """
         NUMBER_OF_STEPS=300
         #xmax=(self.lensPositions[-1] + self.lensFocals[-1])
         #xmin=self.z0
-        
-        #zmin=self.z0
-        #zmax= self.lensPositions[-1] + self.lensFocals[-1]
+        if (zmin is None) | (zmax is None):
+            zmin=self.z0
+            zmax= self.lensPositions[-1] + self.lensFocals[-1]
+            
+
         z=sp.arange(zmin,zmax,(zmax-zmin)/NUMBER_OF_STEPS)
         beamWidth=sp.zeros(len(z))
         
         plt.figure()
-        #Will use the same trick as in the
-        #index=sp.arange(0,self.amountSections)[sum(z>prop.beamsLimits)==1]
-        #BeamSection(*self.beamParams[:,index]).waiplst(z)
+        #This time, opposite to the waist method, it will loop over the different
+        #sections, checking which parts of the beam fall under the limits of each
+        #section. Then, it will use the "waist" method in the BeamSection object
+        #to plot the beam width.
         for ii in range(self.amountSections):
             localIndices=((z>self.beamsLimits[0,ii]) &(z<=self.beamsLimits[1,ii]))
             zlocal= z[localIndices]
             if zlocal is not None:
                 beamWidth[localIndices]=BeamSection(*self.beamParams[:,ii]).waist(zlocal)
-        plt.plot(z,beamWidth)
+        
+        plt.plot(z,beamWidth,'r',linewidth=3)
+        if ('sym' in kwargs):
+            if kwargs['sym']== True:
+                plt.plot(z,-beamWidth,'r',linewidth=3)
+
+        #Add some labels (important, scientists!)
         plt.xlabel('z (m)')
         plt.ylabel('Width (m)')
         
         for ii in range(self.amountElements):
             plt.axvline(x=self.lensPositions[ii])
+        plt.xlim(zmin,zmax)
 
             
 
 
     
-#--Location and size of the beam waist in the output
-#denom=((d_in/f-1)**2 +(zR/f)**2)
-#d_out= f * (1+ (d_in/f -1)/denom)
-#w_0out= w_0in/sqrt(denom)        
-    
+##############################
+# Some functions
+##############################
 
 
 def denominator(d_in,f,zR):
@@ -219,6 +236,10 @@ def rayleigh_range(waist,lambd):
     return sp.pi*waist**2/lambd
 
 
+
+
+##################################################
+#Definitions
 lambd=780.24e-9
 pi=sp.pi
 
@@ -240,28 +261,45 @@ L=50e-2
 w_1prop=propagated_waist(w_1,L,zR1,0)
 
 
-print 'Rayleigh Range: ',zR
+print 'Rayleigh Range: ',zR0
 print 'Final waist: ',w_0
 print 'Maximum magnification for a lens with focal {0:.2e}: {1:.2e}. This, in turn, will give an initial waist of {2:.3e}'.format(f,Mmax,w_1)
 print 'If that waist is located at a distance {0:.2e} from the minimum waist, the *new* waist will be {1:.3e}.'.format(L,w_1prop)
 
 ##############################
-#Try object
+#Try object BeamSection
+##############################
+
+print 'Now trying object BeamSection'
 
 myBeam=BeamSection(780.24e-9,1.1e-6,0)
 myBeam2=myBeam.transformByLens(32e-3,32e-3)
 myBeam3=myBeam2.transformByLens(32e-3,96e-3)
+
+#These should give the same initial and final waists, but at different positions
 myBeam.report()
 myBeam2.report()
 myBeam3.report()
-#print myBeam.z0, myBeam.lambd, myBeam.w0, myBeam.zR
-#print myBeam3.z0, myBeam3.lambd, myBeam3.w0, myBeam3.zR
+
 
 z=sp.arange(-10e-6,150e-3,1e-4)
 #z=sp.arange(-10e-6,100e-6,1e-6)
 plt.plot(z,myBeam.waist(z),label='first')
 plt.plot(z,myBeam2.waist(z),label='second')
 plt.plot(z,myBeam3.waist(z),label='third')
-
 plt.legend()
+
+
+##############################
+# Try object BeamPropagation
+##############################
+
+lenses=sp.array([[32e-3,32e-3,32e-3,32e-3],[32e-3,96e-3,160e-3,224e-3]])
+params=[7.8024e-7, 1.1e-6, 0]
+
+prop=BeamPropagation(params,lenses)
+
+prop.plotFull()
+prop.plotFull(0,0.036)
+
 plt.show()
